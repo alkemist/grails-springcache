@@ -1,0 +1,41 @@
+Service method caching is implemented via Spring AOP, which utilises proxies. In practical terms, this means that when depending on a service with a cached method in another service or controller (or anything else for that matter), you actual receive a _proxy_ for the real service. This allows method calls to be intercepted and for caches to be checked or populated.
+
+The implication of this however is that calls to @this@ (implicit or explicit) do *NOT* go via the proxy. 
+
+Consider the following…
+
+{code}
+class ExampleService {
+    
+    def nonCachedMethod() {
+        cachedMethod()
+    }
+    
+    @Cacheable('cachedMethodCache')
+    def cachedMethod() {
+        // do some expensive stuff
+    }
+}
+{code}
+
+You may expect that the @nonCachedMethod()@ will use the cache for @cachedMethod()@, but it won't. The call is made on @this@ which is the actual instance and not the proxy.
+
+Fortunately, there is an easy workaround…
+
+{code}
+class ExampleService {
+
+    def grailsApplication
+    
+    def nonCachedMethod() {
+        grailsApplication.mainContext.exampleService.cachedMethod()
+    }
+    
+    @Cacheable('cachedMethodCache')
+    def cachedMethod() {
+        // do some expensive stuff
+    }
+}
+{code}
+
+Instead of calling the method on @this@, we obtain the proxy via the application context (i.e. @grailsApplication.mainContext.exampleService@) and call the method on that. This way we go through the caching mechanism.
